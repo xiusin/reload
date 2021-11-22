@@ -1,0 +1,10 @@
+tempBin: "runtime/dev-build"
+ignoreDirs: 
+  - vendor
+  - runtime
+  - temp
+delay: 300
+limit: 500
+types: 
+  - .go
+rootDir: "."
