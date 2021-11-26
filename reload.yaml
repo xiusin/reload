@@ -1,0 +1,17 @@
+tempBin: "runtime/dev-build"
+buildFlag: ""
+ignoreDirs: 
+  - vendor
+  - runtime
+  - temp
+  - assets
+  - tmp
+  - node_modules
+delay: 1000
+limit: 500
+types: 
+  - .go
+  - .gohtml
+  - .tpl
+rootDir: "."
+cmd: "./{bin}"

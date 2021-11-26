@@ -26,7 +26,6 @@ var (
 	counter         int32
 	globalCancel    func()
 )
-var conf = defaultConf
 
 func init() {
 	var err error
@@ -94,7 +93,7 @@ func build() error {
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "XIUSIN_RELOAD_RUN_MODE=child")
 	cmd.Dir = util.AppPath()
-
+	fmt.Println(cmd.String())
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -111,7 +110,7 @@ func registerFileToWatcher() error {
 	}
 	for _, file := range files {
 		if counter > int32(conf.Limit) {
-			logger.Error("监听文件已达上限")
+			logger.Warning("监听文件已达上限")
 			break
 		}
 		if len(conf.FileExts) > 0 && !util.InSlice(".*", conf.FileExts) && !file.IsDir {
@@ -160,7 +159,7 @@ func eventNotify() {
 				logger.Warningf("%s event %s", name, strings.ToLower(event.Op.String()))
 				go func() {
 					if err := build(); err != nil {
-						logger.Print("构建错误", err)
+						logger.Warning("构建错误", err)
 						building = false
 					}
 					rebuildNotifier <- struct{}{}
@@ -171,7 +170,7 @@ func eventNotify() {
 			if !ok {
 				return
 			}
-			logger.Error("watcher error: %s", err)
+			logger.Warning("watcher error: %s", err)
 		}
 	}
 }
