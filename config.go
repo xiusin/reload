@@ -16,6 +16,13 @@ type Config struct {
 	RunCmd     string   `yaml:"cmd"`
 }
 
+type CmdConf struct {
+	Envs     map[string]string
+	Template []string
+}
+
+var cmdConf = CmdConf{}
+
 var conf = &Config{}
 
 func init() {
@@ -37,8 +44,7 @@ types:
   - .go
   - .gohtml
   - .tpl
-rootDir: "."
-cmd: "./{bin}"`
+rootDir: "."`
 }
 
 func parseConf() {

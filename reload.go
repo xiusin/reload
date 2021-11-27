@@ -25,6 +25,7 @@ var (
 	watcher         *fsnotify.Watcher
 	counter         int32
 	globalCancel    func()
+	execCmdConf     *CmdConf
 )
 
 func init() {
@@ -35,9 +36,13 @@ func init() {
 	}
 }
 
-func Loop(fn func() error) error {
+func Loop(fn func() error, cnf *CmdConf) error {
 	if os.Getenv("XIUSIN_RELOAD_RUN_MODE") == "child" {
 		return fn()
+	}
+	execCmdConf = cnf
+	if cnf == nil {
+		execCmdConf = &cmdConf
 	}
 	closeCh := make(chan os.Signal, 1)
 	signal.Notify(closeCh, os.Interrupt, syscall.SIGTERM)
@@ -67,12 +72,24 @@ func serve() {
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
 		globalCancel = cancel
-		process := exec.CommandContext(ctx, fmt.Sprintf("./%s", conf.BuildName))
+
+		process := exec.CommandContext(ctx, fmt.Sprintf("./%s", conf.BuildName), execCmdConf.Template...)
 		process.Dir = util.AppPath()
 		process.Stdout = os.Stdout
 		process.Stderr = os.Stdout
+		process.Env = os.Environ()
+		process.Env = append(process.Env, "XIUSIN_RELOAD_RUN_MODE=child")
+		if execCmdConf != nil {
+			for k, v := range execCmdConf.Envs {
+				process.Env = append(process.Env, k+"="+v)
+			}
+		}
+
 		go func() {
 			<-rebuildNotifier
+			if process.Process != nil {
+				_ = process.Process.Kill()
+			}
 			cancel()
 			nextEventCh <- struct{}{}
 		}()
@@ -91,15 +108,11 @@ func build() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "XIUSIN_RELOAD_RUN_MODE=child")
 	cmd.Dir = util.AppPath()
-	fmt.Println(cmd.String())
 	if err := cmd.Run(); err != nil {
 		return err
 	}
-
 	logger.Printf("构建耗时: %.2fs", time.Since(start).Seconds())
-
 	return nil
 }
 
@@ -144,7 +157,7 @@ func eventNotify() {
 			if isIgnoreAction(&event) {
 				continue
 			}
-			if time.Since(lockerTimestamp) > time.Second*time.Duration(time.Duration(conf.DelayMS)*time.Millisecond) && !building {
+			if time.Since(lockerTimestamp) > time.Duration(conf.DelayMS)*time.Millisecond && !building {
 				name := util.Replace(event.Name, util.AppPath(), "")
 				fileInfo := strings.Split(name, ".")
 				if !util.InSlice(".*", conf.FileExts) && !util.InSlice("."+strings.TrimRight(fileInfo[len(fileInfo)-1], "~"), conf.FileExts) {

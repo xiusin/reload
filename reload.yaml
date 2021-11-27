@@ -14,4 +14,3 @@ types:
   - .gohtml
   - .tpl
 rootDir: "."
-cmd: "./{bin}"
