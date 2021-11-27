@@ -51,3 +51,7 @@ func parseConf() {
 		panic(err)
 	}
 }
+
+func GetExampleConf() string {
+	return exampleConf()
+}
