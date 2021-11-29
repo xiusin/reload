@@ -1,5 +1,4 @@
 tempBin: "runtime/dev-build"
-buildFlag: ""
 ignoreDirs: 
   - vendor
   - runtime
