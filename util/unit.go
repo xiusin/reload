@@ -4,7 +4,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 func AppPath() string {
@@ -55,4 +58,20 @@ func InSlice(needle string, haystacks []string) bool {
 
 func Replace(str, old, new string) string {
 	return strings.ReplaceAll(str, old, new)
+}
+
+func IsWindows() bool {
+	return runtime.GOOS == "windows"
+}
+
+func IsChildMode() bool {
+	return os.Getenv("XIUSIN_RELOAD_RUN_MODE") == "child"
+}
+
+func GetChildEnv() string {
+	return "XIUSIN_RELOAD_RUN_MODE=child"
+}
+
+func IsIgnoreAction(event *fsnotify.Event) bool {
+	return strings.HasSuffix(event.Name, "__") || event.Op.String() == "CHMOD"
 }

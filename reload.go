@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -37,7 +36,7 @@ func init() {
 }
 
 func Loop(fn func() error, cnf *CmdConf) error {
-	if os.Getenv("XIUSIN_RELOAD_RUN_MODE") == "child" {
+	if util.IsChildMode() {
 		return fn()
 	}
 	execCmdConf = cnf
@@ -46,7 +45,7 @@ func Loop(fn func() error, cnf *CmdConf) error {
 	}
 	closeCh := make(chan os.Signal, 1)
 	signal.Notify(closeCh, os.Interrupt, syscall.SIGTERM)
-	if runtime.GOOS == "windows" {
+	if util.IsWindows() {
 		conf.BuildName += winExt
 	}
 	_ = os.MkdirAll(filepath.Dir(conf.BuildName), os.ModePerm)
@@ -55,7 +54,7 @@ func Loop(fn func() error, cnf *CmdConf) error {
 	if err := build(); err != nil {
 		return err
 	}
-	if err := registerFileToWatcher(); err != nil {
+	if err := registerFile(); err != nil {
 		panic(err)
 	}
 	go eventNotify()
@@ -78,7 +77,7 @@ func serve() {
 		process.Stdout = os.Stdout
 		process.Stderr = os.Stdout
 		process.Env = os.Environ()
-		process.Env = append(process.Env, "XIUSIN_RELOAD_RUN_MODE=child")
+		process.Env = append(process.Env, util.GetChildEnv())
 		if execCmdConf != nil {
 			for k, v := range execCmdConf.Envs {
 				process.Env = append(process.Env, k+"="+v)
@@ -116,7 +115,7 @@ func build() error {
 	return nil
 }
 
-func registerFileToWatcher() error {
+func registerFile() error {
 	files, err := util.ScanDir(conf.RootDir, conf.IgnoreDirs)
 	if err != nil {
 		return err
@@ -144,17 +143,13 @@ func registerFileToWatcher() error {
 	return nil
 }
 
-func isIgnoreAction(event *fsnotify.Event) bool {
-	return strings.HasSuffix(event.Name, "__") || event.Op.String() == "CHMOD"
-}
-
 func eventNotify() {
 	var lockerTimestamp time.Time
 	var building = false
 	for {
 		select {
 		case event := <-watcher.Events:
-			if isIgnoreAction(&event) {
+			if util.IsIgnoreAction(&event) {
 				continue
 			}
 			if time.Since(lockerTimestamp) > time.Duration(conf.DelayMS)*time.Millisecond && !building {
@@ -180,10 +175,9 @@ func eventNotify() {
 				}()
 			}
 		case err, ok := <-watcher.Errors:
-			if !ok {
-				return
+			if ok {
+				logger.Warning("watcher error: %s", err)
 			}
-			logger.Warning("watcher error: %s", err)
 		}
 	}
 }
