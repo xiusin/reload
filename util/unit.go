@@ -3,6 +3,7 @@ package util
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -29,17 +30,16 @@ func ScanDir(dir string, ignoreDirs []string) (list []struct {
 			if InSlice(f.Name(), ignoreDirs) {
 				continue
 			}
-			l, err := ScanDir(dir+"/"+f.Name(), ignoreDirs)
+			l, err := ScanDir(filepath.Join(dir, f.Name()), ignoreDirs)
 			if err != nil {
 				return nil, err
 			}
 			list = append(list, l...)
 		}
-		// 添加目录和文件到列表， 提供给监听器
 		list = append(list, struct {
 			Path  string
 			IsDir bool
-		}{Path: dir + "/" + f.Name(), IsDir: f.IsDir()})
+		}{Path: filepath.Join(dir, f.Name()), IsDir: f.IsDir()})
 	}
 	return
 }
@@ -83,7 +83,7 @@ func StrFirstToUpper(str string) string {
 			for i := 0; i < len(vv); i++ {
 				if i == 0 {
 					vv[i] -= 32
-					upperStr += string(vv[i]) // + string(vv[i+1])
+					upperStr += string(vv[i])
 				} else {
 					upperStr += string(vv[i])
 				}
@@ -100,10 +100,10 @@ func CamelString(s string) string {
 	num := len(s) - 1
 	for i := 0; i <= num; i++ {
 		d := s[i]
-		if k == false && d >= 'A' && d <= 'Z' {
+		if !k && d >= 'A' && d <= 'Z' {
 			k = true
 		}
-		if d >= 'a' && d <= 'z' && (j || k == false) {
+		if d >= 'a' && d <= 'z' && (j || !k) {
 			d = d - 32
 			j = false
 			k = true

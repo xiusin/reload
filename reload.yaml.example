@@ -1,4 +1,5 @@
 tempBin: "runtime/dev-build"
+
 ignoreDirs: 
   - vendor
   - runtime
@@ -6,10 +7,12 @@ ignoreDirs:
   - assets
   - tmp
   - node_modules
+
 delay: 1000
 limit: 500
 types: 
   - .go
   - .gohtml
   - .tpl
+
 rootDir: "."

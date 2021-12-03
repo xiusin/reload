@@ -30,7 +30,8 @@ func init() {
 }
 
 func exampleConf() string {
-	return `tempBin: "runtime/dev-build"
+	return `
+tempBin: "runtime/dev-build"
 ignoreDirs: 
   - vendor
   - runtime
