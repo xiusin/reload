@@ -2,7 +2,9 @@ package reload
 
 import (
 	"io/ioutil"
+	"path/filepath"
 
+	"github.com/xiusin/reload/util"
 	"gopkg.in/yaml.v3"
 )
 
@@ -39,17 +41,19 @@ ignoreDirs:
   - assets
   - tmp
   - node_modules
+
 delay: 1000
 limit: 500
 types: 
   - .go
   - .gohtml
   - .tpl
+  
 rootDir: "."`
 }
 
 func parseConf() {
-	confPath := "reload.yaml"
+	confPath := filepath.Join(util.AppPath(), "reload.yaml")
 	byts, err := ioutil.ReadFile(confPath)
 	if err != nil {
 		byts = []byte(exampleConf())
