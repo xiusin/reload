@@ -13,11 +13,13 @@ import "github.com/xiusin/reload"
 func main() {
 	reload.Loop(func() error {
 		return http.ListenAndServe(":8776", nil)
-	}, nil)
+	}, &reload.CmdConf{
+		Template: os.Args[1:]
+	})
 }
 ```
 
-> `reload`本身会阻塞进程, 构建一个`dev-build`文件启动调用`exec.Command`启动, 当修改文件时监测文件变化重新构建并且重启.
+> `reload`本身会阻塞进程, 构建一个`dev-build`文件启动调用`exec.Command`启动, 当修改文件时监测文件变化重新编译并且重启.
 
 ```shell
 $ go run main.go
