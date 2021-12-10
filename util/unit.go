@@ -10,23 +10,22 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+type ScanInfo struct {
+	Path  string
+	IsDir bool
+}
+
 func AppPath() string {
 	curPath, _ := os.Getwd()
 	return curPath
 }
 
-func ScanDir(dir string, ignoreDirs []string) (list []struct {
-	Path  string
-	IsDir bool
-}, err error) {
+func ScanDir(dir string, ignoreDirs []string) (list []ScanInfo, err error) {
 	fs, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return
 	}
-	list = append(list, struct {
-		Path  string
-		IsDir bool
-	}{Path: dir, IsDir: true})
+	list = append(list, ScanInfo{Path: dir, IsDir: true})
 
 	for _, f := range fs {
 		if f.IsDir() {
@@ -39,10 +38,7 @@ func ScanDir(dir string, ignoreDirs []string) (list []struct {
 			}
 			list = append(list, l...)
 		}
-		list = append(list, struct {
-			Path  string
-			IsDir bool
-		}{Path: filepath.Join(dir, f.Name()), IsDir: f.IsDir()})
+		list = append(list, ScanInfo{Path: filepath.Join(dir, f.Name()), IsDir: f.IsDir()})
 	}
 	return
 }

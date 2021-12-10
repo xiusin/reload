@@ -2,6 +2,7 @@ package reload
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	"github.com/xiusin/reload/util"
@@ -19,8 +20,18 @@ type Config struct {
 }
 
 type CmdConf struct {
-	Envs     map[string]string
-	Template []string
+	Envs   map[string]string
+	Base   func(string) string
+	Params []string
+}
+
+func (c *CmdConf) buildEnv() []string {
+	envs := os.Environ()
+	for k, v := range execCmdConf.Envs {
+		envs = append(envs, k+"="+v)
+	}
+	envs = append(envs, util.GetChildEnv())
+	return envs
 }
 
 var cmdConf = CmdConf{}

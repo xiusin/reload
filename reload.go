@@ -20,11 +20,12 @@ import (
 const winExt = ".exe"
 
 var (
-	rebuildNotifier = make(chan struct{})
-	watcher         *fsnotify.Watcher
-	counter         int32
-	globalCancel    func()
-	execCmdConf     *CmdConf
+	rebuildNotifier  = make(chan struct{})
+	watcher          *fsnotify.Watcher
+	counter          int32
+	globalCancel     func()
+	execCmdConf      *CmdConf
+	printReisterFile bool
 )
 
 func init() {
@@ -33,6 +34,10 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func SetPrintRegisterInfo(val bool) {
+	printReisterFile = val
 }
 
 func Loop(fn func() error, cnf *CmdConf) error {
@@ -68,21 +73,18 @@ func Loop(fn func() error, cnf *CmdConf) error {
 
 func serve() {
 	var nextEventCh = make(chan struct{})
+	if execCmdConf.Base == nil {
+		execCmdConf.Base = func(s string) string { return fmt.Sprintf("./%s", s) }
+	}
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
 		globalCancel = cancel
 
-		process := exec.CommandContext(ctx, fmt.Sprintf("./%s", conf.BuildName), execCmdConf.Template...)
+		process := exec.CommandContext(ctx, execCmdConf.Base(conf.BuildName), execCmdConf.Params...)
 		process.Dir = util.AppPath()
 		process.Stdout = os.Stdout
 		process.Stderr = os.Stdout
-		process.Env = os.Environ()
-		process.Env = append(process.Env, util.GetChildEnv())
-		if execCmdConf != nil {
-			for k, v := range execCmdConf.Envs {
-				process.Env = append(process.Env, k+"="+v)
-			}
-		}
+		process.Env = append(process.Env, execCmdConf.buildEnv()...)
 
 		go func() {
 			<-rebuildNotifier
@@ -138,6 +140,9 @@ func registerFile() error {
 			return err
 		} else if !file.IsDir {
 			atomic.AddInt32(&counter, 1)
+			if printReisterFile {
+				logger.Print("监听文件:", file.Path)
+			}
 		}
 	}
 	return nil
