@@ -24,7 +24,6 @@ var (
 	watcher          *fsnotify.Watcher
 	counter          int32
 	globalCancel     func()
-	execCmdConf      *CmdConf
 	printReisterFile bool
 )
 
@@ -40,21 +39,26 @@ func SetPrintRegisterInfo(val bool) {
 	printReisterFile = val
 }
 
-func Loop(fn func() error, cnf *CmdConf) error {
+func Loop(fn func() error, cnf *Conf) error {
 	if util.IsChildMode() {
 		return fn()
 	}
-	execCmdConf = cnf
-	if cnf == nil {
-		execCmdConf = &cmdConf
+	if cnf != nil {
+		if len(cnf.File) > 0 {
+			defaultConf.File = cnf.File
+		}
+		if cnf.Cmd != nil {
+			defaultConf.Cmd = cnf.Cmd
+		}
 	}
+	parseConf()
 	closeCh := make(chan os.Signal, 1)
 	signal.Notify(closeCh, os.Interrupt, syscall.SIGTERM)
 	if util.IsWindows() {
-		conf.BuildName += winExt
+		defaultConf.conf.BuildName += winExt
 	}
-	_ = os.MkdirAll(filepath.Dir(conf.BuildName), os.ModePerm)
-	_ = os.Remove(conf.BuildName)
+	_ = os.MkdirAll(filepath.Dir(defaultConf.conf.BuildName), os.ModePerm)
+	_ = os.Remove(defaultConf.conf.BuildName)
 	defer func() { _ = watcher.Close() }()
 	if err := build(); err != nil {
 		return err
@@ -73,18 +77,18 @@ func Loop(fn func() error, cnf *CmdConf) error {
 
 func serve() {
 	var nextEventCh = make(chan struct{})
-	if execCmdConf.Base == nil {
-		execCmdConf.Base = func(s string) string { return fmt.Sprintf("./%s", s) }
+	if defaultConf.Cmd.Base == nil {
+		defaultConf.Cmd.Base = func(s string) string { return fmt.Sprintf("./%s", s) }
 	}
 	for {
 		ctx, cancel := context.WithCancel(context.Background())
 		globalCancel = cancel
 
-		process := exec.CommandContext(ctx, execCmdConf.Base(conf.BuildName), execCmdConf.Params...)
+		process := exec.CommandContext(ctx, defaultConf.Cmd.Base(defaultConf.conf.BuildName), defaultConf.Cmd.Params...)
 		process.Dir = util.AppPath()
 		process.Stdout = os.Stdout
 		process.Stderr = os.Stdout
-		process.Env = append(process.Env, execCmdConf.buildEnv()...)
+		process.Env = append(process.Env, defaultConf.Cmd.buildEnv()...)
 
 		go func() {
 			<-rebuildNotifier
@@ -105,7 +109,7 @@ func serve() {
 
 func build() error {
 	start := time.Now()
-	cmd := exec.Command("go", "build", "-o", conf.BuildName)
+	cmd := exec.Command("go", "build", "-o", defaultConf.conf.BuildName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stdout
 	cmd.Env = os.Environ()
@@ -118,22 +122,22 @@ func build() error {
 }
 
 func registerFile() error {
-	files, err := util.ScanDir(conf.RootDir, conf.IgnoreDirs)
+	files, err := util.ScanDir(defaultConf.conf.RootDir, defaultConf.conf.IgnoreDirs)
 	if err != nil {
 		return err
 	}
 	for _, file := range files {
-		if counter > int32(conf.Limit) {
+		if counter > int32(defaultConf.conf.Limit) {
 			logger.Warning("监听文件已达上限")
 			break
 		}
-		if len(conf.FileExts) > 0 && !util.InSlice(".*", conf.FileExts) && !file.IsDir {
+		if len(defaultConf.conf.FileExts) > 0 && !util.InSlice(".*", defaultConf.conf.FileExts) && !file.IsDir {
 			suffixPartial := strings.Split(file.Path, ".")
-			if !util.InSlice("."+suffixPartial[len(suffixPartial)-1], conf.FileExts) {
+			if !util.InSlice("."+suffixPartial[len(suffixPartial)-1], defaultConf.conf.FileExts) {
 				continue
 			}
 		}
-		if !file.IsDir && strings.HasSuffix(file.Path, conf.BuildName) {
+		if !file.IsDir && strings.HasSuffix(file.Path, defaultConf.conf.BuildName) {
 			continue
 		}
 		if err := watcher.Add(file.Path); err != nil {
@@ -157,10 +161,10 @@ func eventNotify() {
 			if util.IsIgnoreAction(&event) {
 				continue
 			}
-			if time.Since(lockerTimestamp) > time.Duration(conf.DelayMS)*time.Millisecond && !building {
+			if time.Since(lockerTimestamp) > time.Duration(defaultConf.conf.DelayMS)*time.Millisecond && !building {
 				name := util.Replace(event.Name, util.AppPath(), "")
 				fileInfo := strings.Split(name, ".")
-				if !util.InSlice(".*", conf.FileExts) && !util.InSlice("."+strings.TrimRight(fileInfo[len(fileInfo)-1], "~"), conf.FileExts) {
+				if !util.InSlice(".*", defaultConf.conf.FileExts) && !util.InSlice("."+strings.TrimRight(fileInfo[len(fileInfo)-1], "~"), defaultConf.conf.FileExts) {
 					continue
 				}
 				lockerTimestamp, building = time.Now(), true

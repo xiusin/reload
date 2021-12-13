@@ -1,6 +1,7 @@
 package reload
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -19,6 +20,11 @@ type Config struct {
 	RunCmd     string   `yaml:"cmd"`
 }
 
+type Conf struct {
+	Cmd  *CmdConf
+	File string
+	conf *Config
+}
 type CmdConf struct {
 	Envs   map[string]string
 	Base   func(string) string
@@ -27,19 +33,17 @@ type CmdConf struct {
 
 func (c *CmdConf) buildEnv() []string {
 	envs := os.Environ()
-	for k, v := range execCmdConf.Envs {
-		envs = append(envs, k+"="+v)
+	for k, v := range c.Envs {
+		envs = append(envs, fmt.Sprintf("%s=%s", k, v))
 	}
 	envs = append(envs, util.GetChildEnv())
 	return envs
 }
 
-var cmdConf = CmdConf{}
-
-var conf = &Config{}
-
-func init() {
-	parseConf()
+var defaultConf = Conf{
+	Cmd:  nil,
+	File: "reload.yaml",
+	conf: &Config{},
 }
 
 func exampleConf() string {
@@ -64,12 +68,13 @@ rootDir: "."`
 }
 
 func parseConf() {
-	confPath := filepath.Join(util.AppPath(), "reload.yaml")
+
+	confPath := filepath.Join(util.AppPath(), defaultConf.File)
 	byts, err := ioutil.ReadFile(confPath)
 	if err != nil {
 		byts = []byte(exampleConf())
 	}
-	if err := yaml.Unmarshal(byts, conf); err != nil {
+	if err := yaml.Unmarshal(byts, defaultConf.conf); err != nil {
 		panic(err)
 	}
 }
