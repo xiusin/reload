@@ -1,6 +1,7 @@
 package reload
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -25,10 +26,12 @@ type Conf struct {
 	File string
 	conf *Config
 }
+
 type CmdConf struct {
-	Envs   map[string]string
-	Base   func(string) string
-	Params []string
+	Envs         map[string]string
+	Base         func(string) string
+	Params       []string
+	SubProcessCb []func(ctx context.Context)
 }
 
 func (c *CmdConf) buildEnv() []string {

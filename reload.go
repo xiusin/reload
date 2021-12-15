@@ -20,11 +20,12 @@ import (
 const winExt = ".exe"
 
 var (
-	rebuildNotifier  = make(chan struct{})
-	watcher          *fsnotify.Watcher
-	counter          int32
-	globalCancel     func()
-	printReisterFile bool
+	rebuildNotifier    = make(chan struct{})
+	watcher            *fsnotify.Watcher
+	counter            int32
+	globalCancel       func()
+	printRegisterFile  bool
+	subProcessCancelFn func()
 )
 
 func init() {
@@ -36,13 +37,15 @@ func init() {
 }
 
 func SetPrintRegisterInfo(val bool) {
-	printReisterFile = val
+	printRegisterFile = val
 }
 
 func Loop(fn func() error, cnf *Conf) error {
 	if util.IsChildMode() {
 		return fn()
 	}
+	var ctx context.Context
+	ctx, subProcessCancelFn = context.WithCancel(context.Background())
 	if cnf != nil {
 		if len(cnf.File) > 0 {
 			defaultConf.File = cnf.File
@@ -68,7 +71,15 @@ func Loop(fn func() error, cnf *Conf) error {
 	}
 	go eventNotify()
 	go serve()
+	if len(defaultConf.Cmd.SubProcessCb) > 0 {
+		for _, f := range defaultConf.Cmd.SubProcessCb {
+			go f(ctx)
+		}
+	}
 	<-closeCh
+	if subProcessCancelFn != nil {
+		subProcessCancelFn()
+	}
 	if globalCancel != nil {
 		globalCancel()
 	}
@@ -144,7 +155,7 @@ func registerFile() error {
 			return err
 		} else if !file.IsDir {
 			atomic.AddInt32(&counter, 1)
-			if printReisterFile {
+			if printRegisterFile {
 				logger.Print("监听文件:", file.Path)
 			}
 		}
